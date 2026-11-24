@@ -1,0 +1,207 @@
+
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Hindi 3D Reels Studio</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#071326;color:white;font-family:Arial;text-align:center}
+header{padding:18px;color:#59d9ff;font-size:21px;font-weight:bold}
+#stage{width:min(100vw,440px);height:min(177.78vw,782px);max-height:75vh;margin:auto;position:relative;background:#071326;overflow:hidden;border:1px solid #24456d;border-radius:15px}
+canvas{width:100%;height:100%;display:block}
+#caption{position:absolute;bottom:10%;left:5%;width:90%;font-size:22px;font-weight:bold;text-shadow:2px 2px 5px black;color:white}
+.controls{padding:15px;display:flex;justify-content:center;gap:9px;flex-wrap:wrap}
+button{background:#087fe5;color:white;border:0;border-radius:9px;padding:12px 17px;font-weight:bold}
+button:active{opacity:.7}
+#status{color:#60dfff;font-size:13px;padding:8px}
+</style>
+</head>
+<body>
+<header>⚡ HINDI 3D REELS STUDIO</header>
+<div id="stage">
+ <div id="caption">क्या आप जानते हैं AI कैसे काम करता है?</div>
+</div>
+<div class="controls">
+ <button id="play">▶ Play</button>
+ <button id="pause">Ⅱ Pause</button>
+ <button id="restart">↻ Restart</button>
+ <button id="record">● Record</button>
+</div>
+<div id="status">3D Demo Ready</div>
+
+<script type="module">
+import * as THREE from
+'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
+
+const stage=document.querySelector('#stage');
+const scene=new THREE.Scene();
+scene.background=new THREE.Color('#071326');
+scene.fog=new THREE.Fog('#071326',8,25);
+
+const camera=new THREE.PerspectiveCamera(45,9/16,.1,100);
+camera.position.set(0,1.5,9);
+
+const renderer=new THREE.WebGLRenderer({antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));
+renderer.setSize(stage.clientWidth,stage.clientHeight);
+renderer.shadowMap.enabled=true;
+renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+stage.prepend(renderer.domElement);
+
+scene.add(new THREE.AmbientLight(0xffffff,1.4));
+const light=new THREE.PointLight(0x00aaff,45,20);
+light.position.set(3,5,5);
+scene.add(light);
+
+const gold=new THREE.PointLight(0xffbb44,30,15);
+gold.position.set(-4,2,3);
+scene.add(gold);
+
+const floor=new THREE.Mesh(
+ new THREE.CircleGeometry(5,64),
+ new THREE.MeshStandardMaterial({color:'#102c4b',metalness:.4,roughness:.7})
+);
+floor.rotation.x=-Math.PI/2;
+floor.position.y=-2;
+scene.add(floor);
+
+const robot=new THREE.Group();
+scene.add(robot);
+
+function part(geometry,color,x,y,z){
+ const mesh=new THREE.Mesh(geometry,
+ new THREE.MeshStandardMaterial({color,metalness:.35,roughness:.35}));
+ mesh.position.set(x,y,z);
+ mesh.castShadow=true;
+ robot.add(mesh);
+ return mesh;
+}
+
+const body=part(new THREE.BoxGeometry(1.35,1.45,.8),'#087fe5',0,-.45,0);
+const head=part(new THREE.SphereGeometry(.72,32,32),'#b7eaff',0,.85,0);
+
+part(new THREE.BoxGeometry(.18,.18,.12),'#00eaff',-.27,.9,.63);
+part(new THREE.BoxGeometry(.18,.18,.12),'#00eaff',.27,.9,.63);
+
+part(new THREE.CylinderGeometry(.13,.13,.65,20),'#ffbb33',-.9,-.5,0).rotation.z=-.5;
+part(new THREE.CylinderGeometry(.13,.13,.65,20),'#ffbb33',.9,-.5,0).rotation.z=.5;
+
+part(new THREE.BoxGeometry(.4,.6,.4),'#ffbb33',-.35,-1.45,0);
+part(new THREE.BoxGeometry(.4,.6,.4),'#ffbb33',.35,-1.45,0);
+
+const ring=new THREE.Mesh(
+ new THREE.TorusGeometry(2.1,.025,12,100),
+ new THREE.MeshBasicMaterial({color:'#00cfff'})
+);
+ring.position.y=-1.7;
+ring.rotation.x=Math.PI/2;
+scene.add(ring);
+
+const stars=[];
+for(let i=0;i<100;i++){
+ const s=new THREE.Mesh(
+ new THREE.SphereGeometry(.025,8,8),
+ new THREE.MeshBasicMaterial({color:'#56caff'})
+ );
+ s.position.set((Math.random()-.5)*12,
+ (Math.random()-.5)*10,
+ -Math.random()*8);
+ scene.add(s);
+ stars.push(s);
+}
+
+const captions=[
+'क्या आप जानते हैं AI कैसे काम करता है?',
+'AI सबसे पहले डेटा को समझता है।',
+'फिर यह डेटा के बीच कनेक्शन खोजता है।',
+'Neural Network से AI सीखता है।',
+'और फिर आपके सवालों का जवाब देता है!'
+];
+
+let playing=true;
+let start=performance.now();
+let elapsed=0;
+
+function animate(now){
+ requestAnimationFrame(animate);
+ if(playing) elapsed=(now-start)/1000;
+ const t=elapsed;
+
+ robot.rotation.y=Math.sin(t*.7)*.3;
+ robot.position.y=Math.sin(t*1.8)*.16;
+ head.rotation.z=Math.sin(t*1.2)*.08;
+
+ camera.position.x=Math.sin(t*.3)*.4;
+ camera.lookAt(0,0,0);
+
+ stars.forEach((s,i)=>{
+ s.position.y+=Math.sin(t+i)*.001;
+ });
+
+ const index=Math.min(4,Math.floor(t/9));
+ document.querySelector('#caption').textContent=captions[index];
+
+ renderer.render(scene,camera);
+}
+requestAnimationFrame(animate);
+
+document.querySelector('#play').onclick=()=>{
+ playing=true;
+ start=performance.now()-elapsed*1000;
+ document.querySelector('#status').textContent='Playing 3D animation';
+};
+
+document.querySelector('#pause').onclick=()=>{
+ playing=false;
+ document.querySelector('#status').textContent='Paused';
+};
+
+document.querySelector('#restart').onclick=()=>{
+ elapsed=0;
+ start=performance.now();
+ playing=true;
+};
+
+let recorder, chunks=[];
+document.querySelector('#record').onclick=()=>{
+ if(!renderer.domElement.captureStream ||
+ !window.MediaRecorder){
+ document.querySelector('#status').textContent=
+ 'Recording unavailable. Use screen recorder.';
+ return;
+ }
+ if(recorder?.state==='recording'){
+ recorder.stop();
+ document.querySelector('#record').textContent='● Record';
+ return;
+ }
+ chunks=[];
+ const stream=renderer.domElement.captureStream(30);
+ recorder=new MediaRecorder(stream);
+ recorder.ondataavailable=e=>{
+ if(e.data.size) chunks.push(e.data);
+ };
+ recorder.onstop=()=>{
+ const blob=new Blob(chunks,{type:'video/webm'});
+ const url=URL.createObjectURL(blob);
+ const a=document.createElement('a');
+ a.href=url;
+ a.download='hindi-3d-demo.webm';
+ a.click();
+ document.querySelector('#status').textContent='Recording saved';
+ };
+ recorder.start();
+ document.querySelector('#record').textContent='■ Stop';
+ document.querySelector('#status').textContent='Recording...';
+};
+
+window.addEventListener('resize',()=>{
+ camera.aspect=stage.clientWidth/stage.clientHeight;
+ camera.updateProjectionMatrix();
+ renderer.setSize(stage.clientWidth,stage.clientHeight);
+});
+</script>
+</body>
+</html>
