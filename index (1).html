@@ -1,0 +1,599 @@
+
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Hindi 3D Reels Studio</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Devanagari:wght@600;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#071326;color:white;font-family:'Noto Sans Devanagari',Arial,sans-serif;text-align:center}
+header{padding:18px;color:#59d9ff;font-size:21px;font-weight:bold}
+#stage{width:min(100vw,440px);height:min(177.78vw,782px);max-height:75vh;margin:auto;position:relative;background:#071326;overflow:hidden;border:1px solid #24456d;border-radius:15px}
+canvas{width:100%;height:100%;display:block}
+#caption{position:absolute;bottom:9%;left:5%;width:90%;font-size:clamp(16px,5.1vw,23px);line-height:1.45;font-weight:bold;text-shadow:0 2px 6px #000;color:white;background:rgba(0,0,0,.45);padding:7px 10px;border-radius:8px;z-index:3}
+#fade{position:absolute;inset:0;background:#000;opacity:0;pointer-events:none;z-index:2}
+#hud{position:absolute;top:10px;left:10px;right:10px;display:flex;justify-content:space-between;z-index:3;font-size:12px;pointer-events:none}
+#tag{background:rgba(0,0,0,.5);padding:4px 10px;border-radius:12px;color:#ffd45a}
+#barwrap{position:absolute;left:0;right:0;bottom:0;height:4px;background:rgba(255,255,255,.15);z-index:3}
+#bar{height:100%;width:0;background:#59d9ff}
+#audio{display:flex;justify-content:center;align-items:center;gap:9px;flex-wrap:wrap;padding:0 12px}
+#enable{background:#e8a317;color:#111;animation:pulse 1.4s infinite}
+@keyframes pulse{50%{box-shadow:0 0 0 7px rgba(232,163,23,.25)}}
+#vol{width:110px;accent-color:#59d9ff;height:28px}
+#voiceinfo{color:#8fb7d9;font-size:11px;padding:4px 14px;line-height:1.4}
+select{max-width:180px;background:#102c4b;color:white;border:1px solid #24456d;border-radius:9px;padding:12px 10px;font-weight:bold}
+.controls{padding:15px;display:flex;justify-content:center;gap:9px;flex-wrap:wrap}
+button{background:#087fe5;color:white;border:0;border-radius:9px;padding:12px 17px;font-weight:bold}
+button:active{opacity:.7}
+#status{color:#60dfff;font-size:13px;padding:8px}
+</style>
+</head>
+<body>
+<header>⚡ HINDI 3D REELS STUDIO</header>
+<div id="stage">
+ <div id="fade"></div>
+ <div id="hud"><span id="tag"></span><span>काल्पनिक चित्रण</span></div>
+ <div id="barwrap"><div id="bar"></div></div>
+ <div id="caption">क्या आप जानते हैं AI कैसे काम करता है?</div>
+</div>
+<div class="controls">
+ <button id="play">▶ Play</button>
+ <button id="pause">Ⅱ Pause</button>
+ <button id="restart">↻ Restart</button>
+ <button id="record">● Record</button>
+ <button id="script">📝 Script</button>
+ <button id="srt">CC .srt</button>
+ <select id="mode"><option value="exam">Board Exam Reel</option><option value="ai">AI Demo</option></select>
+</div>
+<div id="audio">
+ <button id="enable">🔊 आवाज़ चालू करें (Enable Audio)</button>
+ <button id="sound">🔊 Sound ON</button>
+ <label style="font-size:13px;color:#59d9ff">🔈 <input type="range" id="vol" min="0" max="100" value="100" aria-label="Volume"></label>
+ <select id="voice" style="display:none" aria-label="Hindi voice"></select>
+</div>
+<div id="voiceinfo"></div>
+<div id="status">3D Demo Ready</div>
+
+<script type="module">
+import * as THREE from
+'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
+
+const stage=document.querySelector('#stage');
+const scene=new THREE.Scene();
+scene.background=new THREE.Color('#071326');
+scene.fog=new THREE.Fog('#071326',8,25);
+
+const camera=new THREE.PerspectiveCamera(45,9/16,.1,100);
+camera.position.set(0,1.5,9);
+
+const renderer=new THREE.WebGLRenderer({antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));
+renderer.setSize(stage.clientWidth,stage.clientHeight);
+renderer.shadowMap.enabled=true;
+renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+stage.prepend(renderer.domElement);
+
+const amb=new THREE.AmbientLight(0xffffff,1.4);
+scene.add(amb);
+const light=new THREE.PointLight(0x00aaff,45,20);
+light.position.set(3,5,5);
+scene.add(light);
+
+const gold=new THREE.PointLight(0xffbb44,30,15);
+gold.position.set(-4,2,3);
+scene.add(gold);
+
+const floor=new THREE.Mesh(
+ new THREE.CircleGeometry(5,64),
+ new THREE.MeshStandardMaterial({color:'#102c4b',metalness:.4,roughness:.7})
+);
+floor.rotation.x=-Math.PI/2;
+floor.position.y=-2;
+scene.add(floor);
+
+const robot=new THREE.Group();
+scene.add(robot);
+
+function part(geometry,color,x,y,z){
+ const mesh=new THREE.Mesh(geometry,
+ new THREE.MeshStandardMaterial({color,metalness:.35,roughness:.35}));
+ mesh.position.set(x,y,z);
+ mesh.castShadow=true;
+ robot.add(mesh);
+ return mesh;
+}
+
+const body=part(new THREE.BoxGeometry(1.35,1.45,.8),'#087fe5',0,-.45,0);
+const head=part(new THREE.SphereGeometry(.72,32,32),'#b7eaff',0,.85,0);
+
+part(new THREE.BoxGeometry(.18,.18,.12),'#00eaff',-.27,.9,.63);
+part(new THREE.BoxGeometry(.18,.18,.12),'#00eaff',.27,.9,.63);
+
+part(new THREE.CylinderGeometry(.13,.13,.65,20),'#ffbb33',-.9,-.5,0).rotation.z=-.5;
+part(new THREE.CylinderGeometry(.13,.13,.65,20),'#ffbb33',.9,-.5,0).rotation.z=.5;
+
+part(new THREE.BoxGeometry(.4,.6,.4),'#ffbb33',-.35,-1.45,0);
+part(new THREE.BoxGeometry(.4,.6,.4),'#ffbb33',.35,-1.45,0);
+
+const ring=new THREE.Mesh(
+ new THREE.TorusGeometry(2.1,.025,12,100),
+ new THREE.MeshBasicMaterial({color:'#00cfff'})
+);
+ring.position.y=-1.7;
+ring.rotation.x=Math.PI/2;
+scene.add(ring);
+
+const stars=[];
+for(let i=0;i<100;i++){
+ const s=new THREE.Mesh(
+ new THREE.SphereGeometry(.025,8,8),
+ new THREE.MeshBasicMaterial({color:'#56caff'})
+ );
+ s.position.set((Math.random()-.5)*12,
+ (Math.random()-.5)*10,
+ -Math.random()*8);
+ scene.add(s);
+ stars.push(s);
+}
+
+const aiCaps=[
+'क्या आप जानते हैं AI कैसे काम करता है?',
+'AI सबसे पहले डेटा को समझता है।',
+'फिर यह डेटा के बीच कनेक्शन खोजता है।',
+'Neural Network से AI सीखता है।',
+'और फिर आपके सवालों का जवाब देता है!'
+];
+
+/* ===================== BOARD EXAM DOCUMENTARY ===================== */
+const $=s=>document.querySelector(s);
+const SK=['#f1c7a0','#d9a06f','#b97c4f','#8d5a3b'];
+const E=u=>u*u*(3-2*u), lerp=(a,b,u)=>a+(b-a)*u, lv=(a,b,u)=>a.map((v,i)=>lerp(v,b[i],u));
+const dl=(a,b,la,lb)=>u=>[lv(a,b,u),lv(la,lb,u)];
+const MC={};
+const mat=(c,o={})=>{const k=c+JSON.stringify(o);return MC[k]||(MC[k]=new THREE.MeshStandardMaterial({color:c,roughness:.6,metalness:.1,...o}))};
+const put=(g,m,x=0,y=0,z=0)=>{m.position.set(x,y,z);g.add(m);return m};
+const box=(g,w,h,d,c,x,y,z,o)=>put(g,new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat(c,o)),x,y,z);
+const cyl=(g,rt,rb,h,c,x,y,z,o)=>put(g,new THREE.Mesh(new THREE.CylinderGeometry(rt,rb,h,24),mat(c,o)),x,y,z);
+const sph=(g,r,c,x,y,z,o)=>put(g,new THREE.Mesh(new THREE.SphereGeometry(r,24,16),mat(c,o)),x,y,z);
+const glow=(c,i=1.6)=>({emissive:c,emissiveIntensity:i});
+const GLASS={transparent:true,opacity:.18,roughness:.1};
+
+function label(txt,col,size=1){
+ const c=document.createElement('canvas');c.width=c.height=128;
+ const x=c.getContext('2d');x.font='bold 100px Arial';x.textAlign='center';x.textBaseline='middle';
+ x.fillStyle=col;x.shadowColor=col;x.shadowBlur=18;x.fillText(txt,64,70);
+ const s=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(c),transparent:true,depthWrite:false}));
+ s.scale.set(size,size,1);return s;
+}
+function mkPts(n,w,h,d,col,size){
+ const a=new Float32Array(n*3);
+ for(let i=0;i<n;i++){a[i*3]=(Math.random()-.5)*w;a[i*3+1]=Math.random()*h;a[i*3+2]=(Math.random()-.5)*d}
+ const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.BufferAttribute(a,3));
+ const p=new THREE.Points(geo,new THREE.PointsMaterial({color:col,size,transparent:true,opacity:.9,depthWrite:false}));
+ p.userData={a,n,h};return p;
+}
+function movePts(p,speed,t){
+ const {a,n,h}=p.userData;
+ for(let i=0;i<n;i++){const k=i*3+1;a[k]=((a[k]+speed*.016)%h+h)%h}
+ p.geometry.attributes.position.needsUpdate=true;
+}
+function person(shirt,skin,o={}){
+ const g=new THREE.Group(),p=new THREE.Group();g.add(p);
+ const base=o.seated?.55:.72, pant='#2b3445';
+ if(o.seated){
+  [-.12,.12].forEach(x=>{box(p,.16,.16,.5,pant,x,base-.08,.24);box(p,.16,.5,.16,pant,x,.27,.48)});
+ }else{
+  [-.12,.12].forEach(x=>box(p,.16,base,.16,pant,x,base/2,0));
+ }
+ const tor=new THREE.Mesh(new THREE.CylinderGeometry(.24,.28,.72,20),mat(shirt));put(p,tor,0,base+.36,0);
+ const head=new THREE.Group();put(p,head,0,base+.9,0);
+ sph(head,.22,skin,0,0,0);
+ const hair=new THREE.Mesh(new THREE.SphereGeometry(.235,20,12,0,Math.PI*2,0,Math.PI*.55),mat(o.hair||'#1a1410'));put(head,hair,0,.02,-.01);
+ sph(head,.03,'#111',-.08,.02,.2);sph(head,.03,'#111',.08,.02,.2);
+ const arms=[-1,1].map(s=>{
+  const a=new THREE.Group();put(p,a,s*.33,base+.66,0);
+  cyl(a,.07,.07,.6,shirt,0,-.3,0);sph(a,.075,skin,0,-.63,0);return a;
+ });
+ g.arms=arms;g.head=head;g.torso=tor;return g;
+}
+function chair(g,x,y,z,ry){
+ const c=new THREE.Group();c.position.set(x,y,z);c.rotation.y=ry;
+ box(c,.5,.06,.5,'#3b2f2a',0,.52,.12);box(c,.5,.55,.06,'#3b2f2a',0,.8,-.14);g.add(c);
+}
+function paperTex(){
+ const c=document.createElement('canvas');c.width=512;c.height=724;const x=c.getContext('2d');
+ x.fillStyle='#fbfbf6';x.fillRect(0,0,512,724);
+ x.fillStyle='#1b3a6b';x.fillRect(0,0,512,92);
+ x.fillStyle='#fff';x.textAlign='center';x.font='bold 40px "Noto Sans Devanagari",Arial';x.fillText('नमूना प्रश्न पत्र',256,52);
+ x.font='20px "Noto Sans Devanagari",Arial';x.fillText('(काल्पनिक • केवल उदाहरण)',256,80);
+ x.fillStyle='#223';x.textAlign='left';x.font='bold 24px Arial';
+ for(let i=0;i<9;i++){
+  const y=140+i*64;x.fillText((i+1)+'.',34,y);
+  x.fillStyle='#b9bfcc';x.fillRect(74,y-18,300+((i*53)%120),10);x.fillRect(74,y,200+((i*37)%180),10);x.fillStyle='#223';
+ }
+ x.strokeStyle='#223';x.strokeRect(410,110,70,34);
+ const t=new THREE.CanvasTexture(c);return t;
+}
+const T=Math.PI;
+/* ---- scene builders: each returns {g,upd(u,t),cam(u)} ---- */
+function s1(){
+ const g=new THREE.Group();
+ cyl(g,5,5,.1,'#0a1426',0,-1.7,0,{metalness:.8,roughness:.25});
+ const ring=new THREE.Mesh(new THREE.TorusGeometry(2.4,.04,12,80),new THREE.MeshBasicMaterial({color:'#ffcc55'}));ring.rotation.x=T/2;put(g,ring,0,-1.6,0);
+ const P=new THREE.Group();g.add(P);
+ box(P,2.2,3.1,.04,'#fbfbf6');
+ const pl=new THREE.Mesh(new THREE.PlaneGeometry(2.14,3.02),new THREE.MeshBasicMaterial({map:paperTex()}));pl.position.z=.025;P.add(pl);
+ const qs=[];for(let i=0;i<8;i++){const s=label(i%2?'?':'✦',i%2?'#ffcc55':'#59d9ff',.9);g.add(s);qs.push(s)}
+ const pts=mkPts(140,9,6,6,'#9fdcff',.05);pts.position.y=-2;g.add(pts);
+ return{g,
+  upd(u,t){P.rotation.y=Math.sin(t*.6)*.45+u*.5;P.position.y=Math.sin(t*1.5)*.1+.1;ring.rotation.z=t*.4;
+   qs.forEach((s,i)=>{const a=t*.8+i*T/4;s.position.set(Math.cos(a)*2.5,Math.sin(t*1.2+i)*.9+.2,Math.sin(a)*2.5)});movePts(pts,.5,t)},
+  cam:dl([0,.5,9.5],[0,.1,5.4],[0,0,0],[0,0,0])};
+}
+function s2(){
+ const g=new THREE.Group();
+ box(g,16,.1,16,'#4a3a2a',0,-.05,0);cyl(g,3.4,3.4,.03,'#2a4a7a',0,.02,0);
+ cyl(g,1.5,1.5,.1,'#7a5230',0,.78,0);cyl(g,.2,.2,.78,'#4d3320',0,.39,0);
+ const ts=[],cols=['#d96b4f','#4f8bd9','#58b368'];
+ for(let i=0;i<3;i++){
+  const a=i*2.094+.3,r=2.1,x=Math.sin(a)*r,z=Math.cos(a)*r;
+  const p=person(cols[i],SK[i],{seated:true});p.position.set(x,0,z);p.rotation.y=a+T;g.add(p);ts.push(p);
+  chair(g,x,0,z,a+T);
+  box(g,.5,.012,.7,'#ffffff',Math.sin(a)*1.0,.84,Math.cos(a)*1.0).rotation.y=a;
+ }
+ box(g,10,4,.3,'#2c2118',0,2,-6);
+ for(let i=0;i<14;i++)box(g,.5,.7+(i%3)*.15,.25,['#c0392b','#2980b9','#f1c40f','#27ae60','#8e44ad'][i%5],-4.5+i*.68,1.2+(i%2)*1.4,-5.8);
+ box(g,4,2,.06,'#e9eef5',4.2,2.4,-5.7);
+ for(let i=0;i<4;i++)box(g,2.8-i*.3,.08,.02,'#4f8bd9',4.2,3+(-i*.4)+.2,-5.66);
+ cyl(g,.02,.02,1.6,'#222',0,3.4,0);cyl(g,.12,.5,.35,'#ffcc66',0,2.5,0,glow('#ffcc66',1.2));
+ const sp=[];for(let i=0;i<6;i++){const s=label(i<3?'?':'✓',i<3?'#ffcc55':'#58e08a',.8);g.add(s);sp.push(s)}
+ return{g,
+  upd(u,t){ts.forEach((p,i)=>{p.arms[1].rotation.x=-1.1+Math.sin(t*6+i*2)*.15;p.arms[0].rotation.x=-.5;p.head.rotation.x=.25+Math.sin(t*1.5+i)*.05});
+   sp.forEach((s,i)=>{const f=(t*.35+i*.17)%1,a=i*1.05;s.position.set(Math.sin(a)*1.1,1.3+f*1.8,Math.cos(a)*1.1);s.material.opacity=Math.sin(f*T)})},
+  cam:u=>{const a=-.5+u*1.4,r=8-u*1.8;return[[Math.sin(a)*r,2.8-u*.5,Math.cos(a)*r],[0,1.2,0]]}};
+}
+function s3(){
+ const g=new THREE.Group();
+ box(g,18,.1,16,'#2d3138',0,-.05,0);
+ for(let i=0;i<9;i++)box(g,.25,.012,16,'#e6b800',-8+i*2,.01,0);
+ box(g,18,6,.3,'#3a4250',0,3,-5);
+ box(g,6,1.6,1.8,'#46586e',0,.9,-1.5);box(g,5.4,.6,1.4,'#2f3d52',0,2.2,-1.5);
+ const rl=[];for(let i=0;i<5;i++){const R=new THREE.Group();R.rotation.x=T/2;put(g,R,-2+i,1.9,-.55);const c=cyl(R,.18,.18,1.2,'#9aa7b8',0,0,0,{metalness:.9,roughness:.3});rl.push(c)}
+ box(g,6.6,.14,1.2,'#1c1f24',0,.75,.6);
+ const sheets=[];for(let i=0;i<10;i++)sheets.push(box(g,.5,.03,.7,'#ffffff',0,.86,.6));
+ for(let i=0;i<4;i++)box(g,.7,.25,.9,'#a97c50',4.4,.13+i*.26,1.4);
+ for(let i=0;i<4;i++)box(g,.72,.05,.92,'#c0392b',4.4,.2+i*.26,1.4);
+ const bm=new THREE.MeshStandardMaterial({color:'#ff2d2d',emissive:'#ff2d2d',emissiveIntensity:2});
+ cyl(g,.05,.05,2.5,'#555',-5.5,1.25,-3.8);put(g,new THREE.Mesh(new THREE.SphereGeometry(.25,20,16),bm),-5.5,2.7,-3.8);
+ [[-7,4.5,-4.6],[7,4.5,-4.6]].forEach(([x,y,z])=>{cyl(g,.04,.04,.6,'#888',x,y+.3,z);put(g,new THREE.Mesh(new THREE.SphereGeometry(.22,16,8,0,T*2,0,T/2),mat('#1b1b1b')),x,y,z).rotation.x=T})
+ box(g,.1,3,5,'#7fd6ff',-8.4,1.5,-1,GLASS);box(g,.1,3,5,'#7fd6ff',8.4,1.5,-1,GLASS);
+ const gate=new THREE.Group();put(g,gate,-5.6,1,3);box(gate,2.4,.14,.14,'#e8e8e8',1.2,0,0);box(gate,.3,.14,.15,'#d22',.5,0,0);box(gate,.3,.14,.15,'#d22',1.6,0,0);box(g,.3,1.1,.3,'#444',-5.6,.55,3);
+ const guard=person('#1f3a6b',SK[1],{hair:'#111'});guard.position.set(4,0,3);guard.rotation.y=-T/2-.4;g.add(guard);
+ return{g,
+  upd(u,t){rl.forEach(c=>c.rotation.y=t*4);sheets.forEach((s,i)=>s.position.x=-3+((t*1.1+i*.62)%6.2));
+   bm.emissiveIntensity=1.2+Math.sin(t*6)*1.1;gate.rotation.z=u>.5?Math.min(1.2,(u-.5)*3):0;guard.arms[0].rotation.x=-.2+Math.sin(t*1.2)*.04},
+  cam:dl([-6.5,2.2,7.5],[4.5,1.7,6.5],[-3,1.3,0],[3,1.3,-1.5])};
+}
+function s4(){
+ const g=new THREE.Group();
+ box(g,60,.1,7,'#1b1e24',0,-.05,0);box(g,60,.2,3,'#3a3f48',0,.05,-5.2);box(g,60,.2,3,'#3a3f48',0,.05,5.2);
+ const dash=[];for(let i=0;i<12;i++)dash.push(box(g,1.4,.012,.14,'#e8e8e8',0,.01,0));
+ const bl=[];for(let i=0;i<16;i++){const h=3+(i*7%5)*1.5,s=i%2?1:-1;const b=box(g,2.2,h,2.2,['#1d2a44','#26334d','#2d2a3f'][i%3],0,h/2,s*8.5);box(b,1.6,.2,.02,'#ffd27a',0,0,s*1.12,glow('#ffd27a',1.4)).position.y=h/2-1.2+(i%3)*.4;bl.push(b)}
+ const van=new THREE.Group();g.add(van);
+ box(van,3.4,1.6,1.6,'#e8edf2',0,1.3,0);box(van,1.2,1.15,1.5,'#dfe6ee',2.3,1.0,0);box(van,.05,.6,1.3,'#223',2.93,1.2,0,{metalness:.8,roughness:.1});
+ box(van,3.42,.18,1.62,'#c0392b',0,1.3,0);box(van,3.42,.08,1.62,'#1b5fa8',0,.8,0);
+ const wh=[];[[-1.1,.4,.85],[1.2,.4,.85],[-1.1,.4,-.85],[1.2,.4,-.85],[2.5,.4,.8],[2.5,.4,-.8]].forEach(([x,y,z])=>{const w=cyl(van,.4,.4,.2,'#111',x,y,z);w.rotation.x=T/2;wh.push(w)});
+ const esc=new THREE.Group();esc.position.set(-6.5,0,.2);g.add(esc);
+ box(esc,2.8,.7,1.4,'#1b5fa8',0,.6,0);box(esc,1.5,.55,1.3,'#9fc3ea',-.1,1.2,0);
+ [[-.9,.3,.7],[.9,.3,.7],[-.9,.3,-.7],[.9,.3,-.7]].forEach(([x,y,z])=>{const w=cyl(esc,.3,.3,.18,'#111',x,y,z);w.rotation.x=T/2;wh.push(w)});
+ box(esc,.2,.1,.5,'#ff3b3b',0,1.5,0,glow('#ff3b3b',2.5));
+ const pk=new THREE.Group();g.add(pk);for(let i=0;i<3;i++){box(pk,.8,.5,.6,'#a97c50',0,.25+i*.5,0);box(pk,.82,.1,.62,'#c0392b',0,.25+i*.5,0)}
+ sph(g,2.2,'#cfe6ff',-20,16,-30,{...glow('#cfe6ff',1)});
+ return{g,
+  upd(u,t){dash.forEach((d,i)=>d.position.x=((i*5-t*9)%60+60)%60-30);bl.forEach((b,i)=>b.position.x=((i*4.2-t*5)%67+67)%67-33);
+   wh.forEach(w=>w.rotation.y=t*9);van.position.y=Math.sin(t*9)*.015;esc.position.y=Math.sin(t*8+1)*.015;
+   const k=Math.min(1,Math.max(0,(u-.05)/.2));pk.position.set(lerp(-5,-2.2,k),0,0);pk.visible=u<.28;pk.position.z=lerp(2.2,0,k)},
+  cam:dl([-2.5,1.3,5.2],[7,2.2,9],[-3,.9,1.4],[0,1.3,0])};
+}
+function s5(){
+ const g=new THREE.Group();
+ box(g,14,.1,14,'#33363c',0,-.05,0);box(g,14,7,.3,'#4a4f58',0,3.5,-5.2);box(g,.3,7,14,'#454a53',-7,3.5,0);box(g,.3,7,14,'#454a53',7,3.5,0);
+ const ring=new THREE.Mesh(new THREE.TorusGeometry(2.0,.28,16,48),mat('#2b2f36',{metalness:.9,roughness:.35}));put(g,ring,0,2.4,-4.5);
+ const door=new THREE.Group();put(g,door,0,2.4,-4.3);
+ const dc=cyl(door,1.9,1.9,.3,'#7a8594',0,0,0,{metalness:.9,roughness:.3});dc.rotation.x=T/2;
+ const wheel=new THREE.Group();put(door,wheel,0,0,.25);
+ wheel.add(new THREE.Mesh(new THREE.TorusGeometry(.6,.07,12,40),mat('#d4a64a',{metalness:.9,roughness:.3})));
+ for(let i=0;i<3;i++){const s=box(wheel,1.2,.09,.09,'#d4a64a',0,0,0,{metalness:.9,roughness:.3});s.rotation.z=i*T/3}
+ for(let i=0;i<12;i++){const a=i*T/6;sph(door,.07,'#556070',Math.cos(a)*1.6,Math.sin(a)*1.6,.17,{metalness:.9})}
+ const led=new THREE.Mesh(new THREE.SphereGeometry(.12,16,12),new THREE.MeshStandardMaterial({color:'#ff3030',emissive:'#ff3030',emissiveIntensity:2}));put(g,led,2.8,2.4,-4.9);
+ const dk=['#a97c50'];
+ [-1,1].forEach(s=>{for(let lv2=0;lv2<3;lv2++){box(g,1.4,.06,5.5,'#5b6573',s*5.2,.5+lv2*1.2,-1.2,{metalness:.7});
+  for(let k=0;k<4;k++){box(g,.9,.6,.6,dk[0],s*5.2,.86+lv2*1.2,-3.2+k*1.3);box(g,.92,.1,.62,'#c0392b',s*5.2,.86+lv2*1.2,-3.2+k*1.3)}}
+  box(g,.1,3.8,5.5,'#5b6573',s*5.95,1.9,-1.2)});
+ box(g,2.4,.15,.6,'#fff2c8',0,6.4,-1,glow('#fff2c8',2));
+ const a=person('#7a2a3a',SK[0],{hair:'#c9c9c9'});a.position.set(-1.3,0,-1);a.rotation.y=T-.2;g.add(a);
+ const b=person('#4a5568',SK[2]);b.position.set(1.3,0,-1);b.rotation.y=T+.2;g.add(b);
+ return{g,
+  upd(u,t){wheel.rotation.z=u>.45?-(u-.45)*14:0;
+   led.material.emissive.set(u>.7?'#38e07a':'#ff3030');led.material.color.set(u>.7?'#38e07a':'#ff3030');
+   a.arms[1].rotation.x=-.6+Math.sin(t*1.4)*.08;b.head.rotation.y=Math.sin(t*.8)*.3},
+  cam:dl([0,2.6,9],[0,2.4,2.6],[0,2.2,-4],[0,2.3,-4.5])};
+}
+function s6(){
+ const g=new THREE.Group();
+ box(g,14,.1,14,'#6b5a45',0,-.05,0);box(g,14,7,.3,'#d8d2c2',0,3.5,-6);box(g,.3,7,14,'#cfc8b5',-5.5,3.5,0);box(g,.3,7,14,'#cfc8b5',5.5,3.5,0);
+ box(g,5,2,.08,'#1f4d3a',0,2.8,-5.8);box(g,5.2,.1,.12,'#5b3d22',0,1.75,-5.78);
+ const clk=new THREE.Group();put(g,clk,3.8,4.4,-5.8);const cf=cyl(clk,.4,.4,.06,'#fafafa',0,0,0);cf.rotation.x=T/2;
+ const hand=box(clk,.04,.3,.02,'#111',0,.15,.05);const hp=new THREE.Group();clk.add(hp);hp.add(hand);
+ [-3,0].forEach(z=>box(g,.05,2,1.8,'#cfe8ff',-5.3,3,z-.5,glow('#cfe8ff',1.6)));
+ [-3,0].forEach(z=>{const s=box(g,1,7,1.6,'#ffffff',-3.9,2.8,z-.5,{transparent:true,opacity:.07,emissive:'#ffffff',emissiveIntensity:1});s.rotation.z=.55});
+ [-1.5,1.5].forEach(x=>box(g,.5,.06,5,'#fffbe0',x,5.8,-1,glow('#fffbe0',2)));
+ const cols=['#d94f4f','#4f8bd9','#e0b43c','#58b368','#9a6bd6','#e07a3c'],st=[];
+ for(let r=0;r<3;r++)for(let c=0;c<4;c++){
+  const x=[-3,-1.1,1.1,3][c],z=-3.6+r*2.1,i=r*4+c;
+  box(g,1.05,.06,.7,'#a9784a',x,.78,z);box(g,.06,.78,.06,'#555',x-.45,.39,z-.28);box(g,.06,.78,.06,'#555',x+.45,.39,z+.28);
+  box(g,.5,.012,.35,'#ffffff',x,.82,z+.03);
+  const p=person(cols[i%6],SK[i%4],{seated:true,hair:i%3?'#1a1410':'#3b2a1a'});p.position.set(x,0,z+.62);p.rotation.y=T;g.add(p);st.push(p);chair(g,x,0,z+.62,T);
+ }
+ const inv=person('#1e2f55',SK[1],{hair:'#222'});g.add(inv);
+ return{g,
+  upd(u,t){st.forEach((p,i)=>{p.arms[1].rotation.x=-1.0+Math.sin(t*5+i)*.1;p.head.rotation.x=.3+Math.sin(t+i)*.04});
+   hp.rotation.z=-t*.2;const z=-4.2+(Math.sin(t*.4)+1)*3.4;inv.position.set(0,Math.abs(Math.sin(t*3))*.03,z);inv.rotation.y=Math.cos(t*.4)>0?0:T;
+   inv.arms[0].rotation.x=Math.sin(t*3)*.3;inv.arms[1].rotation.x=-Math.sin(t*3)*.3},
+  cam:dl([2.5,7.2,9],[0,2.3,5],[0,.2,-1.5],[0,1.3,-2.5])};
+}
+function s7(){
+ const g=new THREE.Group();
+ box(g,16,.1,14,'#3a3f4a',0,-.05,0);box(g,16,7,.3,'#2d333d',0,3.5,-5);
+ for(let r=0;r<2;r++)for(let i=0;i<12;i++)box(g,.55,.9,.4,['#c0392b','#2980b9','#27ae60','#f1c40f','#8e44ad'][i%5],-6.2+i*1.1,1+r*1.3,-4.7);
+ box(g,8,.1,1.7,'#8a6a47',0,.8,0);[-3.6,3.6].forEach(x=>box(g,.12,.8,1.4,'#5b4630',x,.4,0));
+ const cols=['#4f8bd9','#d96b4f','#58b368'],ts=[];
+ for(let i=0;i<3;i++){const x=-2.5+i*2.5;const p=person(cols[i],SK[(i+1)%4],{seated:true});p.position.set(x,0,-1.25);g.add(p);ts.push(p);chair(g,x,0,-1.25,0);
+  const h=.3+i*.14;box(g,.6,h,.8,'#ffffff',x-.6,.85+h/2,.15);box(g,.62,.03,.82,'#c9d3e8',x-.6,.86+h,.15);
+  const d=.18+i*.1;box(g,.6,d,.8,'#e8ffe9',x+.7,.85+d/2,.2);box(g,.62,.05,.82,'#27ae60',x+.7,.86+d,.2);
+  cyl(g,.02,.02,.04,'#1b1b1b',x,.86,.0);cyl(g,.03,.03,.45,'#d22',x+.3,.88,.1).rotation.z=T/2;
+  cyl(g,.02,.02,.6,'#222',x,1.9,-.2);cyl(g,.1,.45,.3,'#ffcc66',x,1.62,-.2,glow('#ffcc66',1.4))}
+ const sp=[];for(let i=0;i<6;i++){const s=label('✓','#58e08a',.8);g.add(s);sp.push(s)}
+ return{g,
+  upd(u,t){ts.forEach((p,i)=>{p.arms[1].rotation.x=-.9+Math.sin(t*3.5+i*1.7)*.2;p.head.rotation.x=.4;p.arms[0].rotation.x=-.4});
+   sp.forEach((s,i)=>{const f=(t*.4+i*.17)%1;s.position.set(-3+i*1.2,1.5+f*1.6,.2);s.material.opacity=Math.sin(f*T)})},
+  cam:dl([-6.5,2.4,6],[6.5,2.1,5.5],[-1.5,1.3,0],[1.5,1.3,0])};
+}
+function s8(){
+ const g=new THREE.Group();
+ cyl(g,60,60,.2,'#2e5a3a',0,-.1,0);box(g,3,.03,40,'#c8b48a',0,.01,-8);
+ const sun=new THREE.Mesh(new THREE.SphereGeometry(7,32,24),new THREE.MeshBasicMaterial({color:'#ffb347'}));put(g,sun,0,6,-45);
+ const sc=new THREE.Group();put(sc,new THREE.Group(),0,0,0);sc.position.set(0,0,-18);g.add(sc);
+ box(sc,11,3.6,3,'#e8d5b0',0,1.8,0);box(sc,11.4,.4,3.4,'#b04a3a',0,3.8,0);box(sc,2,2.2,.1,'#5a3a22',0,1.1,1.55);
+ [-4,-2.5,2.5,4].forEach(x=>box(sc,1,1,.08,'#ffd27a',x,2.2,1.55,glow('#ffd27a',1.6)));
+ cyl(sc,.05,.05,5,'#ccc',5,3.5,0);box(sc,1,.6,.04,'#ffcc33',5.5,5.7,0);
+ [[-9,-12],[9,-13],[-7,-6],[8,-5]].forEach(([x,z])=>{cyl(g,.15,.2,1.4,'#5b3d22',x,.7,z);const c=new THREE.Mesh(new THREE.ConeGeometry(1.1,2.8,16),mat('#2f7a44'));put(g,c,x,2.6,z)});
+ const cols=['#d94f4f','#4f8bd9','#e0b43c','#58b368','#9a6bd6'],st=[];
+ for(let i=0;i<5;i++){const p=person(cols[i],SK[i%4]);p.position.set((i-2)*.9,0,1.5-(i%2)*.7);p.rotation.y=T;g.add(p);st.push(p)}
+ const cap=new THREE.Group();put(g,cap,0,5.3,-6);
+ const bd=box(cap,1.8,.08,1.8,'#14141c');bd.rotation.y=T/4;cyl(cap,.5,.5,.4,'#14141c',0,-.25,0);box(cap,.04,.5,.04,'#ffcc33',.9,-.25,0,glow('#ffcc33',1));
+ const star=label('★','#ffd45a',2);star.position.set(0,6.4,-6);g.add(star);
+ const conf=mkPts(220,12,10,10,'#ffd45a',.09);conf.position.set(0,0,-3);g.add(conf);
+ return{g,
+  upd(u,t){st.forEach((p,i)=>{p.position.z=Math.max(-2.5,1.5-(i%2)*.7-u*5);p.arms[0].rotation.x=u>.55?-2.9+Math.sin(t*6+i)*.2:Math.sin(t*4+i)*.35;p.arms[1].rotation.x=u>.55?-2.9+Math.cos(t*6+i)*.2:-Math.sin(t*4+i)*.35;p.position.y=Math.abs(Math.sin(t*4+i))*(u>.55?.15:.04)});
+   cap.rotation.y=t*.8;cap.position.y=5.3+Math.sin(t*1.6)*.2;movePts(conf,-1.8,t);star.material.opacity=.7+Math.sin(t*3)*.3},
+  cam:dl([0,1.6,4],[0,5.4,15],[0,1.5,-8],[0,3.6,-10])};
+}
+
+const SCRIPT=[
+ {d:7,tag:'प्रश्न पत्र',a:'हर बोर्ड परीक्षा का प्रश्न पत्र',b:'महीनों की तैयारी से बनता है।'},
+ {d:8,tag:'प्रश्न निर्माण',a:'सबसे पहले अनुभवी शिक्षक पाठ्यक्रम के आधार पर प्रश्न तैयार करते हैं,',b:'फिर उन्हें जाँचकर संतुलित बनाया जाता है।'},
+ {d:7,tag:'सुरक्षित छपाई',a:'फिर प्रश्न पत्र कड़ी निगरानी वाली जगह पर छपते हैं,',b:'जहाँ सिर्फ़ अधिकृत लोग ही काम करते हैं।'},
+ {d:7,tag:'सुरक्षित परिवहन',a:'छपे हुए पैकेट सील करके',b:'सुरक्षित तरीके से परीक्षा केंद्रों तक भेजे जाते हैं।'},
+ {d:7,tag:'सुरक्षित कक्ष',a:'केंद्र पर ये पैकेट सुरक्षित कक्ष में रखे जाते हैं,',b:'और परीक्षा से पहले तक बंद रहते हैं।'},
+ {d:8,tag:'परीक्षा कक्ष',a:'परीक्षा के दिन निर्धारित समय पर, निरीक्षकों की मौजूदगी में',b:'पैकेट खुलते हैं और विद्यार्थियों को प्रश्न पत्र मिलता है।'},
+ {d:7,tag:'मूल्यांकन',a:'परीक्षा के बाद शिक्षक',b:'निष्पक्ष तरीके से उत्तर पुस्तिकाओं का मूल्यांकन करते हैं।'},
+ {d:7,tag:'समापन',a:'कई लोगों की मेहनत से परीक्षा निष्पक्ष बनती है।',b:'(यह सामान्य जानकारी है, किसी बोर्ड की आधिकारिक प्रक्रिया नहीं।)'}
+];
+const LIGHTS=[
+ {bg:'#05070f',amb:.5,l1:['#ffcc55',3,4,5,90],l2:['#59d9ff',-4,2,4,70]},
+ {bg:'#1a1410',amb:.9,l1:['#ffd9a0',0,4,2,90],l2:['#8fb7ff',-5,3,5,50]},
+ {bg:'#10151d',amb:.8,l1:['#9fd4ff',-3,5,5,110],l2:['#ff4040',5,3,2,60]},
+ {bg:'#0a1124',amb:.7,l1:['#ffe0a0',3,4,5,90],l2:['#4f8bd9',-6,4,3,70]},
+ {bg:'#0c0d11',amb:.6,l1:['#ffb347',0,5,-1,110],l2:['#38c7ff',3,3,5,70]},
+ {bg:'#1b2230',amb:1.1,l1:['#fff4d6',0,6,-1,120],l2:['#cfe8ff',-5,4,2,60]},
+ {bg:'#161a22',amb:.9,l1:['#ffd9a0',0,4,3,110],l2:['#58e08a',4,3,5,40]},
+ {bg:'#ff9a4d',amb:1.2,l1:['#ffcf80',0,8,-8,160],l2:['#ffd9b0',-3,4,6,60]}
+];
+const SC=[s1,s2,s3,s4,s5,s6,s7,s8].map((f,i)=>({...SCRIPT[i],...f(),i}));
+const ST=[];let TOTAL=0;SC.forEach(s=>{ST.push(TOTAL);TOTAL+=s.d});
+const exam=new THREE.Group();scene.add(exam);SC.forEach(s=>{s.g.visible=false;exam.add(s.g)});
+const CAPS=[];SC.forEach((s,i)=>{CAPS.push({t:ST[i]+.2,text:s.a});CAPS.push({t:ST[i]+s.d*.5,text:s.b})});
+
+const capEl=$('#caption'),fadeEl=$('#fade'),tagEl=$('#tag'),barEl=$('#bar'),statusEl=$('#status');
+const AI_OBJ=[floor,robot,ring,...stars],AI_L={l1:[light.position.clone(),light.color.clone(),light.intensity,light.distance],l2:[gold.position.clone(),gold.color.clone(),gold.intensity,gold.distance],amb:amb.intensity};
+let mode='exam',cur=-1,playing=true,start=performance.now(),elapsed=0,fadeV=0,curCap='';
+
+/* ---- Hindi male voiceover (Web Speech API, hi-IN) ---- */
+const SS=window.speechSynthesis,hasTTS=!!SS&&typeof SpeechSynthesisUtterance!=='undefined';
+let audioReady=false,soundOn=true,vol=1,voices=[],voice=null,vPitch=1,spokenFor=-1,speakTok=0,voicePref='';
+const rateMem={};
+try{const v=JSON.parse(localStorage.getItem('hrs')||'{}');if(typeof v.on==='boolean')soundOn=v.on;if(typeof v.vol==='number')vol=Math.min(1,Math.max(0,v.vol));if(v.voice)voicePref=v.voice}catch(e){}
+function saveAud(){try{localStorage.setItem('hrs',JSON.stringify({on:soundOn,vol,voice:voice?voice.name:voicePref}))}catch(e){}}
+const isMale=v=>!/female|woman|swara|neerja/i.test(v.name)&&/(^|[^a-z])male|hemant|madhur|kabir|rishi|prabhat/i.test(v.name);
+function pickVoice(v){
+ voice=v||null;
+ vPitch=voice&&isMale(voice)?1:.8; /* पुरुष आवाज़ न मिले तो स्वर थोड़ा नीचा */
+ const info=$('#voiceinfo');
+ if(!hasTTS)info.textContent='इस ब्राउज़र में Voice सपोर्ट नहीं है';
+ else if(!voice)info.textContent='Hindi voice नहीं मिली — डिफ़ॉल्ट आवाज़ (hi-IN) इस्तेमाल होगी। Android: Settings › Text-to-speech में Hindi जोड़ें।';
+ else info.textContent='Voice: '+voice.name+' ('+voice.lang+')'+(isMale(voice)?' · पुरुष':' · पुरुष आवाज़ उपलब्ध नहीं, स्वर नीचा किया गया');
+}
+function loadVoices(){
+ if(!hasTTS)return;
+ voices=SS.getVoices().filter(v=>/^hi([-_]|$)/i.test(v.lang));
+ const sel=$('#voice');sel.innerHTML='';
+ voices.forEach(v=>{const o=document.createElement('option');o.value=v.name;o.textContent=v.name;sel.appendChild(o)});
+ sel.style.display=voices.length>1?'':'none';
+ const v=voices.find(x=>x.name===voicePref)||voices.find(isMale)||voices[0]||null;
+ if(v)sel.value=v.name;
+ pickVoice(v);
+}
+function stopSpeech(){speakTok++;if(hasTTS){try{SS.cancel()}catch(e){}}}
+function speakScene(i,lt){
+ if(!hasTTS||!audioReady||!soundOn||mode!=='exam')return;
+ spokenFor=i;stopSpeech();const tok=speakTok;
+ const s=SC[i],full=lt<s.d*.5,txt=full?s.a+' '+s.b:s.b,left=Math.max(2,s.d-lt-.4);
+ const rate=rateMem[i]||Math.min(1.4,Math.max(.8,txt.length/left/13));
+ setTimeout(()=>{
+  if(tok!==speakTok)return;
+  const u=new SpeechSynthesisUtterance(txt);
+  u.lang='hi-IN';if(voice)u.voice=voice;u.rate=rate;u.pitch=vPitch;u.volume=vol;
+  let t0=0;u.onstart=()=>{t0=performance.now()};
+  u.onend=()=>{if(tok===speakTok&&t0&&lt<.6){rateMem[i]=Math.min(1.5,Math.max(.75,rate*((performance.now()-t0)/1000)/Math.max(2,s.d-.5)))}};
+  try{SS.speak(u)}catch(e){}
+ },90);
+}
+if(hasTTS){loadVoices();SS.onvoiceschanged=loadVoices}
+const sndBtn=$('#sound'),volEl=$('#vol');
+function paintSnd(){sndBtn.textContent=soundOn?'🔊 Sound ON':'🔇 Sound OFF'}
+paintSnd();volEl.value=Math.round(vol*100);
+sndBtn.onclick=()=>{soundOn=!soundOn;saveAud();paintSnd();if(soundOn)spokenFor=-1;else stopSpeech()};
+volEl.oninput=()=>{vol=volEl.value/100;saveAud()};
+$('#voice').onchange=e=>{pickVoice(voices.find(v=>v.name===e.target.value));saveAud()};
+$('#enable').onclick=()=>{
+ if(!hasTTS){statusEl.textContent='इस ब्राउज़र में Voice सपोर्ट नहीं है';return}
+ audioReady=true;
+ try{SS.cancel();const u=new SpeechSynthesisUtterance(' ');u.volume=0;SS.speak(u)}catch(e){}
+ loadVoices();
+ $('#enable').style.display='none';
+ if(mode==='exam'){elapsed=0;start=performance.now();playing=true;spokenFor=-1;statusEl.textContent='Audio ON · रील शुरू से चल रही है'}
+};
+document.addEventListener('visibilitychange',()=>{if(document.hidden){stopSpeech();spokenFor=-1}});
+
+function applyScene(i){
+ cur=i;SC.forEach((s,k)=>s.g.visible=k===i);
+ const L=LIGHTS[i];scene.background.set(L.bg);scene.fog.color.set(L.bg);scene.fog.near=14;scene.fog.far=60;
+ amb.intensity=L.amb;
+ [[light,L.l1],[gold,L.l2]].forEach(([o,a])=>{o.color.set(a[0]);o.position.set(a[1],a[2],a[3]);o.intensity=a[4];o.distance=45});
+ tagEl.textContent=(i+1)+'/8 · '+SC[i].tag;
+}
+function setMode(m){
+ stopSpeech();spokenFor=-1;
+ mode=m;cur=-1;elapsed=0;start=performance.now();playing=true;
+ const ex=m==='exam';exam.visible=ex;AI_OBJ.forEach(o=>o.visible=!ex);
+ $('#hud').style.display=ex?'flex':'none';
+ if(ex){camera.fov=55;}else{
+  camera.fov=45;camera.position.set(0,1.5,9);scene.background.set('#071326');scene.fog.color.set('#071326');scene.fog.near=8;scene.fog.far=25;
+  [[light,AI_L.l1],[gold,AI_L.l2]].forEach(([o,a])=>{o.position.copy(a[0]);o.color.copy(a[1]);o.intensity=a[2];o.distance=a[3]});amb.intensity=AI_L.amb;
+  fadeEl.style.opacity=0;fadeV=0;
+ }
+ camera.updateProjectionMatrix();
+ statusEl.textContent=ex?'Board Exam Reel · 58s · काल्पनिक व सामान्य चित्रण':'3D Demo Ready';
+}
+function frameExam(t){
+ let i=0;while(i<7&&t>=ST[i+1])i++;
+ const s=SC[i],lt=t-ST[i],u=Math.min(1,Math.max(0,lt/s.d));
+ if(i!==cur)applyScene(i);
+ if(playing&&audioReady&&soundOn&&spokenFor!==i)speakScene(i,lt);
+ s.upd(u,t);
+ const cu=lerp(u,E(u),.5),[p,l]=s.cam(cu);
+ camera.position.set(p[0]+Math.sin(t*1.3)*.04,p[1]+Math.sin(t*1.7)*.03,p[2]);camera.lookAt(l[0],l[1],l[2]);
+ const f=Math.min(lt,s.d-lt)/.4;fadeV=f<1?1-Math.max(0,f):0;fadeEl.style.opacity=fadeV;
+ let c='';for(const k of CAPS)if(t>=k.t)c=k.text;
+ if(c!==curCap){curCap=c;capEl.textContent=c}
+ barEl.style.width=(t/TOTAL*100)+'%';
+}
+function frameAI(t){
+ robot.rotation.y=Math.sin(t*.7)*.3;robot.position.y=Math.sin(t*1.8)*.16;head.rotation.z=Math.sin(t*1.2)*.08;
+ camera.position.x=Math.sin(t*.3)*.4;camera.lookAt(0,0,0);
+ stars.forEach((s,i)=>{s.position.y+=Math.sin(t+i)*.001});
+ const c=aiCaps[Math.min(4,Math.floor(t/9))];if(c!==curCap){curCap=c;capEl.textContent=c}
+}
+function animate(now){
+ requestAnimationFrame(animate);
+ if(playing){
+  elapsed=(now-start)/1000;
+  if(mode==='exam'&&elapsed>=TOTAL){elapsed=TOTAL;playing=false;finished()}
+ }
+ if(mode==='exam')frameExam(elapsed);else frameAI(elapsed);
+ renderer.render(scene,camera);
+ if(recorder?.state==='recording')drawRec();
+}
+window.__frame=t=>{if(mode==='exam')frameExam(t);else frameAI(t);renderer.render(scene,camera)};
+window.__setMode=setMode;window.__total=()=>TOTAL;
+requestAnimationFrame(animate);
+
+/* ---- narration + subtitles export ---- */
+const tc=(s,ms)=>{const h=Math.floor(s/3600),m=Math.floor(s%3600/60),x=Math.floor(s%60),r=Math.round((s%1)*1000);
+ return String(h).padStart(2,'0')+':'+String(m).padStart(2,'0')+':'+String(x).padStart(2,'0')+(ms?',':'.')+String(r).padStart(3,'0')};
+function saveText(name,text){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type:'text/plain;charset=utf-8'}));a.download=name;a.click()}
+$('#script').onclick=()=>{
+ let o='हिंदी नैरेशन स्क्रिप्ट — बोर्ड परीक्षा का प्रश्न पत्र कैसे तैयार होता है? (58 सेकंड)\n'+
+ 'AI वॉइस सेटिंग: शांत, भरोसेमंद डॉक्यूमेंट्री स्वर · मध्यम गति · हर दृश्य की अवधि के भीतर पढ़ें।\n'+
+ 'नोट: यह सामान्य, काल्पनिक जानकारी है; किसी बोर्ड की आधिकारिक प्रक्रिया नहीं।\n\n';
+ SC.forEach((s,i)=>{o+='दृश्य '+(i+1)+' ['+tc(ST[i])+' – '+tc(ST[i]+s.d)+'] '+s.tag+'\n'+s.a+' '+s.b+'\n\n'});
+ saveText('narration_hindi.txt',o);
+};
+$('#srt').onclick=()=>{
+ let o='',n=0;
+ CAPS.forEach((k,i)=>{const end=i<CAPS.length-1?CAPS[i+1].t-.05:TOTAL;o+=(++n)+'\n'+tc(k.t,1)+' --> '+tc(end,1)+'\n'+k.text+'\n\n'});
+ saveText('captions_hindi.srt',o);
+};
+
+/* ---- controls ---- */
+$('#play').onclick=()=>{
+ if(!playing)spokenFor=-1;
+ if(mode==='exam'&&elapsed>=TOTAL)elapsed=0;
+ playing=true;start=performance.now()-elapsed*1000;statusEl.textContent='Playing 3D animation';
+};
+$('#pause').onclick=()=>{stopSpeech();playing=false;statusEl.textContent='Paused'};
+$('#restart').onclick=()=>{stopSpeech();spokenFor=-1;elapsed=0;start=performance.now();playing=true;statusEl.textContent='Playing 3D animation'};
+$('#mode').onchange=e=>setMode(e.target.value);
+function finished(){
+ statusEl.textContent='समाप्त · Restart दबाएँ';
+ if(recorder?.state==='recording')recorder.stop();
+}
+
+/* ---- recording: 1080x1920 canvas with burned-in subtitles ---- */
+const rc=document.createElement('canvas');rc.width=1080;rc.height=1920;const rx=rc.getContext('2d');
+function wrap(txt,maxW){const w=txt.split(' '),lines=[];let l='';w.forEach(x=>{const n=l?l+' '+x:x;if(rx.measureText(n).width>maxW&&l){lines.push(l);l=x}else l=n});if(l)lines.push(l);return lines}
+function drawRec(){
+ rx.drawImage(renderer.domElement,0,0,1080,1920);
+ if(curCap){
+  rx.font='bold 54px "Noto Sans Devanagari",Arial';rx.textAlign='center';rx.textBaseline='middle';
+  const ls=wrap(curCap,900),lh=84,h=ls.length*lh+36,y0=1700-h/2;
+  rx.fillStyle='rgba(0,0,0,.5)';rx.fillRect(60,y0,960,h);
+  rx.fillStyle='#fff';rx.shadowColor='#000';rx.shadowBlur=8;
+  ls.forEach((l,i)=>rx.fillText(l,540,y0+18+lh*(i+.5)));rx.shadowBlur=0;
+ }
+ if(mode==='exam'){rx.fillStyle='#59d9ff';rx.fillRect(0,1910,1080*elapsed/TOTAL,10)}
+ if(fadeV>0){rx.fillStyle='rgba(0,0,0,'+fadeV+')';rx.fillRect(0,0,1080,1920)}
+}
+function fitRenderer(){renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));renderer.setSize(stage.clientWidth,stage.clientHeight)}
+let recorder,chunks=[];
+$('#record').onclick=()=>{
+ if(!HTMLCanvasElement.prototype.captureStream||!window.MediaRecorder){statusEl.textContent='Recording unavailable. Use screen recorder.';return}
+ if(recorder?.state==='recording'){recorder.stop();return}
+ chunks=[];
+ renderer.setPixelRatio(1);renderer.setSize(1080,1920,false);
+ if(mode==='exam'){stopSpeech();spokenFor=-1;elapsed=0;start=performance.now();playing=true}
+ const mt=['video/webm;codecs=vp9','video/webm'].find(m=>MediaRecorder.isTypeSupported(m));
+ recorder=new MediaRecorder(rc.captureStream(30),{...(mt?{mimeType:mt}:{}),videoBitsPerSecond:8e6});
+ recorder.ondataavailable=e=>{if(e.data.size)chunks.push(e.data)};
+ recorder.onstop=()=>{
+  fitRenderer();
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob(chunks,{type:'video/webm'}));
+  a.download=mode==='exam'?'board-exam-question-paper-reel.webm':'hindi-3d-demo.webm';a.click();
+  $('#record').textContent='● Record';statusEl.textContent='Recording saved';
+ };
+ recorder.start();
+ $('#record').textContent='■ Stop';statusEl.textContent='Recording 1080×1920 @30fps...';
+};
+
+window.addEventListener('resize',()=>{
+ if(recorder?.state==='recording')return;
+ camera.aspect=stage.clientWidth/stage.clientHeight;camera.updateProjectionMatrix();
+ renderer.setSize(stage.clientWidth,stage.clientHeight);
+});
+setMode('exam');
+</script>
+</body>
+</html>
